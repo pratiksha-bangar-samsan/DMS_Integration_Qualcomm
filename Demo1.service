@@ -1,0 +1,47 @@
+[Unit]
+Description=Driver Monitoring - Event Detection Service
+#After=network-online.target
+After=graphical.target pulseaudio.service
+Wants=network-online.target
+
+[Service]
+# Run as your user
+User=jetson
+Group=jetson
+WorkingDirectory=/home/jetson
+
+# Environment for Python + display + unbuffered output
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/jetson/.Xauthority
+Environment=PULSE_RUNTIME_PATH=/run/user/1000/pulse
+Environmane=PULSE_SERVER=unix:/run/user/1000/pulse/native
+
+# Wait until can0 exists (max 20 seconds)
+ExecStartPre=/bin/bash -c 'for i in {1..20}; do ip link show can0 >/dev/null 2>&1 && break || echo "Waiting for can0..."; sleep 1; done'
+
+# Bring CAN interface down, set bitrate, then up
+ExecStartPre=/bin/bash -c 'ip link set can0 down || true'
+ExecStartPre=/bin/bash -c 'ip link set can0 type can bitrate 500000 || true'
+ExecStartPre=/bin/bash -c 'ip link set can0 up || true'
+
+# Extra delay to ensure hardware ready
+ExecStartPre=/bin/sleep 5
+
+# Start Python script
+ExecStart=/usr/bin/python3 /home/jetson/Demo1_CAN_13_10_25.py
+
+# Restart automatically on crash
+#Restart=always
+Restart=on-failure
+RestartSec=5
+
+# Log all output
+StandardOutput=append:/home/jetson/demo1can.log
+StandardError=append:/home/jetson/demo1can_error.log
+
+[Install]
+WantedBy=multi-user.target
+
+
+
